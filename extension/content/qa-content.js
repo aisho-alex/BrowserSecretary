@@ -371,6 +371,9 @@ class KnowledgeHelperQA {
     popup.style.left = '50%';
     popup.style.transform = 'translate(-50%, -50%)';
     popup.style.zIndex = '2147483647';
+    
+    // Store original centered state
+    popup.dataset.isCentered = 'true';
   }
 
   makeDraggable(popup) {
@@ -383,17 +386,25 @@ class KnowledgeHelperQA {
       startX = e.clientX;
       startY = e.clientY;
       
-      // Get current position
+      // Get current position - account for transform
       const rect = popup.getBoundingClientRect();
-      initialLeft = rect.left;
-      initialTop = rect.top;
       
-      // Remove transform for dragging
-      popup.style.transform = 'none';
+      // If popup is centered with transform, calculate actual position
+      if (popup.dataset.isCentered === 'true') {
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        popup.style.transform = 'none';
+        popup.dataset.isCentered = 'false';
+      } else {
+        initialLeft = parseFloat(popup.style.left) || rect.left;
+        initialTop = parseFloat(popup.style.top) || rect.top;
+      }
+      
       popup.style.left = `${initialLeft}px`;
       popup.style.top = `${initialTop}px`;
       
       header.style.cursor = 'grabbing';
+      header.style.userSelect = 'none';
       e.preventDefault();
     });
 
@@ -422,6 +433,7 @@ class KnowledgeHelperQA {
       if (isDragging) {
         isDragging = false;
         header.style.cursor = 'grab';
+        header.style.userSelect = '';
       }
     });
   }
@@ -463,7 +475,12 @@ class KnowledgeHelperQA {
     `;
 
     document.body.appendChild(this.quickPopup);
-    this.positionQuickPopup();
+    
+    // Wait for render then position
+    requestAnimationFrame(() => {
+      this.positionQuickPopup();
+    });
+    
     this.setupQuickPopupHandlers(selection);
   }
 
@@ -473,10 +490,28 @@ class KnowledgeHelperQA {
 
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
+    const popupRect = this.quickPopup.getBoundingClientRect();
+
+    // Calculate position - fixed positioning doesn't need scrollY
+    let top = rect.bottom + 10;
+    let left = rect.left + window.scrollX - 50;
+
+    // Ensure popup stays within viewport
+    if (top + popupRect.height > window.innerHeight) {
+      // Show above selection if not enough space below
+      top = rect.top - popupRect.height - 10;
+    }
+    top = Math.max(10, Math.min(top, window.innerHeight - popupRect.height - 10));
+
+    if (left + popupRect.width > window.innerWidth) {
+      // Align to right edge if too far right
+      left = window.innerWidth - popupRect.width - 10;
+    }
+    left = Math.max(10, Math.min(left, window.innerWidth - popupRect.width - 10));
 
     this.quickPopup.style.position = 'fixed';
-    this.quickPopup.style.top = `${rect.bottom + window.scrollY + 10}px`;
-    this.quickPopup.style.left = `${rect.left + window.scrollX - 100}px`;
+    this.quickPopup.style.top = `${top}px`;
+    this.quickPopup.style.left = `${left}px`;
     this.quickPopup.style.zIndex = '2147483647';
   }
 
