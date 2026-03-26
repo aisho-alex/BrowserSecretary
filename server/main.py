@@ -39,14 +39,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS for browser extension
+# CORS for browser extension - must be added BEFORE other middleware
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origin_regex=".*",  # Allow all origins (extensions, localhost, etc.)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Include routers
