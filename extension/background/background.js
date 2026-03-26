@@ -64,56 +64,51 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
   }
 
-  // Q&A menu items
+  // Q&A menu items - don't wait for response
   if (info.menuItemId === 'qa-selection') {
-    try {
-      const response = await chrome.tabs.sendMessage(tab.id, {
-        type: 'ASK_ABOUT_SELECTION',
-        data: {
-          selection: info.selectionText || ''
-        }
-      });
-      // Don't wait for response, just send
-    } catch (error) {
-      // Content script not loaded - inject it first
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['content/content.js', 'content/qa-content.js']
-        });
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await chrome.tabs.sendMessage(tab.id, {
-          type: 'ASK_ABOUT_SELECTION',
-          data: {
-            selection: info.selectionText || ''
-          }
-        });
-      } catch (injectError) {
-        console.error('Failed to inject and send Q&A message:', injectError);
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'ASK_ABOUT_SELECTION',
+      data: {
+        selection: info.selectionText || ''
       }
-    }
+    }).catch(() => {
+      // Content script not loaded - inject it first
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content/content.js', 'content/qa-content.js']
+      }).then(() => {
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'ASK_ABOUT_SELECTION',
+            data: {
+              selection: info.selectionText || ''
+            }
+          }).catch(console.error);
+        }, 100);
+      }).catch(injectError => {
+        console.error('Failed to inject Q&A script:', injectError);
+      });
+    });
   }
 
   if (info.menuItemId === 'qa-page') {
-    try {
-      await chrome.tabs.sendMessage(tab.id, {
-        type: 'OPEN_QA_PANEL'
-      });
-    } catch (error) {
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'OPEN_QA_PANEL'
+    }).catch(() => {
       // Content script not loaded - inject it first
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['content/content.js', 'content/qa-content.js']
-        });
-        await new Promise(resolve => setTimeout(resolve, 100));
-        await chrome.tabs.sendMessage(tab.id, {
-          type: 'OPEN_QA_PANEL'
-        });
-      } catch (injectError) {
-        console.error('Failed to inject and open Q&A panel:', injectError);
-      }
-    }
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content/content.js', 'content/qa-content.js']
+      }).then(() => {
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tab.id, {
+            type: 'OPEN_QA_PANEL'
+          }).catch(console.error);
+        }, 100);
+      }).catch(injectError => {
+        console.error('Failed to inject Q&A panel script:', injectError);
+      });
+    });
   }
 });
 
