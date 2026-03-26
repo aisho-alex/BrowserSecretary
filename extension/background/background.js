@@ -1,5 +1,5 @@
 // Knowledge Helper - Background Service Worker
-// Handles context menu,// Handles context menu, message routing, and API proxy for content scripts
+// Handles context menu, message routing, and API proxy for content scripts
 
 const SERVER_URL = 'http://127.0.0.1:8000';
 
@@ -21,7 +21,6 @@ chrome.runtime.onInstalled.addListener(() => {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'save-to-kb' || info.menuItemId === 'save-page-to-kb') {
-    // Try to send message to content script
     try {
       await chrome.tabs.sendMessage(tab.id, {
         type: 'SHOW_SAVE_POPUP',
@@ -32,21 +31,27 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       });
     } catch (error) {
       // Content script not loaded - inject it
+      try {
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           files: ['content/content.js']
         });
         
-        // Wait a bit then send message
         setTimeout(async () => {
-          await chrome.tabs.sendMessage(tab.id, {
-            type: 'SHOW_SAVE_POPUP',
-            data: {
-              selection: info.selectionText || '',
-              title: tab.title
-            }
-          });
+          try {
+            await chrome.tabs.sendMessage(tab.id, {
+              type: 'SHOW_SAVE_POPUP',
+              data: {
+                selection: info.selectionText || '',
+                title: tab.title
+              }
+            });
+          } catch (e) {
+            console.error('Failed to send message:', e);
+          }
         }, 200);
+      } catch (e) {
+        console.error('Failed to inject script:', e);
       }
     }
   }
@@ -54,29 +59,19 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 // Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  // API request from popup
-  if (msg.type === 'API_REQUEST') {
-    handleApiRequest(msg.endpoint, msg.method, msg.data)
-      .then(result => sendResponse({ success: true, data: result }))
-      .catch(error => sendResponse({ success: false, error: error.message }));
-    return true; // Keep channel open for async response
-  }
-  
-  // API request from content script (different type to distinguish)
-  if (msg.type === 'CONTENT_API_REQUEST') {
+  if (msg.type === 'API_REQUEST' || msg.type === 'CONTENT_API_REQUEST') {
     handleApiRequest(msg.endpoint, msg.method, msg.data)
       .then(result => sendResponse({ success: true, data: result }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
+  return false;
 });
 
 async function handleApiRequest(endpoint, method = 'GET', data = null) {
   const options = {
     method,
-    headers: {
-      'Content-Type': 'application/json'
-    }
+    headers: { 'Content-Type': 'application/json' }
   };
 
   if (data && method !== 'GET') {
@@ -86,7 +81,8 @@ async function handleApiRequest(endpoint, method = 'GET', data = null) {
   const response = await fetch(`${SERVER_URL}${endpoint}`, options);
   
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const errorText = await response.text();
+    throw new Error(`HTTP ${response.status}: ${errorText}`);
   }
 
   return response.json();
