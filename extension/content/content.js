@@ -2,6 +2,13 @@
 // Handles text selection and inline save popup
 // All API calls go through background script via chrome.runtime.sendMessage
 
+// Prevent multiple injections
+if (window.knowledgeHelperLoaded) {
+  console.log('[Knowledge Helper] Already loaded, skipping re-initialization');
+} else {
+  window.knowledgeHelperLoaded = true;
+}
+
 class KnowledgeHelperContent {
   constructor() {
     this.popup = null;
@@ -226,4 +233,7 @@ class KnowledgeHelperContent {
   }
 }
 
-const knowledgeHelper = new KnowledgeHelperContent();
+// Only instantiate if not already loaded
+if (!window.knowledgeHelperLoaded || window.knowledgeHelperInstance === undefined) {
+  window.knowledgeHelperInstance = new KnowledgeHelperContent();
+}

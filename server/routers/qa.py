@@ -68,14 +68,14 @@ Answer:"""
     # 4. Call LLM API
     if not settings.llm_api_key:
         return QuestionResponse(
-            answer="LLM API key not configured. Please set LLM_API_KEY in .env file.",
+            answer="LLM API key not configured. Please set LLM_API_KEY in .env file. You can use OpenAI API key or a local LLM server like Ollama.",
             sources=sources,
             model="none"
         )
-    
+
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            response = await http_client.post(
                 settings.llm_api_url,
                 headers={
                     "Authorization": f"Bearer {settings.llm_api_key}",
@@ -93,11 +93,27 @@ Answer:"""
             )
             response.raise_for_status()
             result = response.json()
+            
+            # Check if response has expected structure
+            if "choices" not in result or len(result["choices"]) == 0:
+                raise ValueError(f"Unexpected LLM response format: {result}")
+                
             answer = result["choices"][0]["message"]["content"]
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=500, detail=f"LLM API error: {e}")
+        # Log detailed error for debugging
+        error_detail = f"LLM API HTTP error {e.response.status_code}: {e.response.text}"
+        print(f"[Q&A Error] {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
+    except httpx.ConnectError as e:
+        # Connection failed
+        error_detail = f"Cannot connect to LLM API at {settings.llm_api_url}: {str(e)}"
+        print(f"[Q&A Error] {error_detail}")
+        raise HTTPException(status_code=503, detail=error_detail)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        # Generic error
+        error_detail = f"LLM API error: {type(e).__name__}: {str(e)}"
+        print(f"[Q&A Error] {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
     
     return QuestionResponse(
         answer=answer,

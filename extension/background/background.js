@@ -30,29 +30,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         }
       });
     } catch (error) {
-      // Content script not loaded - inject it
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['content/content.js']
-        });
-        
-        setTimeout(async () => {
-          try {
-            await chrome.tabs.sendMessage(tab.id, {
-              type: 'SHOW_SAVE_POPUP',
-              data: {
-                selection: info.selectionText || '',
-                title: tab.title
-              }
-            });
-          } catch (e) {
-            console.error('Failed to send message:', e);
-          }
-        }, 200);
-      } catch (e) {
-        console.error('Failed to inject script:', e);
-      }
+      console.error('Failed to send message to tab:', error);
     }
   }
 });

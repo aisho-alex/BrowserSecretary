@@ -51,6 +51,24 @@ class KnowledgeBaseClient:
                 name, description, content='projects', content_rowid='rowid'
             )
         """)
+
+        # Triggers to keep projects FTS index in sync
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS projects_fts_insert AFTER INSERT ON projects BEGIN
+                INSERT INTO projects_fts(rowid, name, description) VALUES (new.rowid, new.name, new.description);
+            END
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS projects_fts_delete AFTER DELETE ON projects BEGIN
+                INSERT INTO projects_fts(projects_fts, rowid, name, description) VALUES('delete', old.rowid, old.name, old.description);
+            END
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS projects_fts_update AFTER UPDATE ON projects BEGIN
+                INSERT INTO projects_fts(projects_fts, rowid, name, description) VALUES('delete', old.rowid, old.name, old.description);
+                INSERT INTO projects_fts(rowid, name, description) VALUES (new.rowid, new.name, new.description);
+            END
+        """)
         
         # Knowledge entries table
         conn.execute("""
@@ -73,6 +91,24 @@ class KnowledgeBaseClient:
             CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
                 title, content, content='knowledge_entries', content_rowid='rowid'
             )
+        """)
+
+        # Triggers to keep FTS index in sync
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS knowledge_fts_insert AFTER INSERT ON knowledge_entries BEGIN
+                INSERT INTO knowledge_fts(rowid, title, content) VALUES (new.rowid, new.title, new.content);
+            END
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS knowledge_fts_delete AFTER DELETE ON knowledge_entries BEGIN
+                INSERT INTO knowledge_fts(knowledge_fts, rowid, title, content) VALUES('delete', old.rowid, old.title, old.content);
+            END
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS knowledge_fts_update AFTER UPDATE ON knowledge_entries BEGIN
+                INSERT INTO knowledge_fts(knowledge_fts, rowid, title, content) VALUES('delete', old.rowid, old.title, old.content);
+                INSERT INTO knowledge_fts(rowid, title, content) VALUES (new.rowid, new.title, new.content);
+            END
         """)
         
         # Tags table
@@ -406,7 +442,7 @@ class KnowledgeBaseClient:
                 "type": "project",
                 "id": project["id"],
                 "title": project["name"],
-                "snippet": project.get("description", "")[:150],
+                "snippet": (project.get("description") or "")[:150],
                 "tags": [],
                 "project_id": project["id"]
             })
