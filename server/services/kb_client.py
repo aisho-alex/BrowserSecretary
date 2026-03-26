@@ -176,13 +176,25 @@ class KnowledgeBaseClient:
     def search_projects(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Search projects."""
         conn = self._get_conn()
-        rows = conn.execute("""
-            SELECT p.* FROM projects p
-            JOIN projects_fts fts ON p.rowid = fts.rowid
-            WHERE projects_fts MATCH ?
-            ORDER BY rank
-            LIMIT ?
-        """, (query, limit)).fetchall()
+        safe_query = query.replace('"', '""').replace("'", "''")
+        
+        try:
+            rows = conn.execute("""
+                SELECT p.* FROM projects p
+                JOIN projects_fts fts ON p.rowid = fts.rowid
+                WHERE projects_fts MATCH ?
+                ORDER BY rank
+                LIMIT ?
+            """, [f'"{safe_query}"', limit]).fetchall()
+        except Exception as e:
+            # Fallback to LIKE search
+            print(f"FTS5 search failed for projects: {e}")
+            like_param = f"%{query}%"
+            rows = conn.execute(
+                "SELECT * FROM projects WHERE name LIKE ? OR description LIKE ? LIMIT ?",
+                [like_param, like_param, limit]
+            ).fetchall()
+        
         return [dict(row) for row in rows]
     
     # =========================================================================
@@ -332,19 +344,38 @@ class KnowledgeBaseClient:
     def search_knowledge(self, query: str, project_id: str = None, limit: int = 20) -> List[Dict[str, Any]]:
         """Full-text search in knowledge entries."""
         conn = self._get_conn()
-        sql = """
-            SELECT ke.* FROM knowledge_entries ke
-            JOIN knowledge_fts fts ON ke.rowid = fts.rowid
-            WHERE knowledge_fts MATCH ?
-        """
-        params = [query]
-        if project_id:
-            sql += " AND ke.project_id = ?"
-            params.append(project_id)
-        sql += " ORDER BY rank LIMIT ?"
-        params.append(limit)
         
-        rows = conn.execute(sql, params).fetchall()
+        # Escape special FTS5 characters and build safe query
+        # FTS5 requires escaping: ' " ( ) * ^ ~
+        safe_query = query.replace('"', '""').replace("'", "''")
+        
+        try:
+            sql = """
+                SELECT ke.* FROM knowledge_entries ke
+                JOIN knowledge_fts fts ON ke.rowid = fts.rowid
+                WHERE knowledge_fts MATCH ?
+            """
+            params = [f'"{safe_query}"']  # Wrap in quotes for phrase search
+            if project_id:
+                sql += " AND ke.project_id = ?"
+                params.append(project_id)
+            sql += " ORDER BY rank LIMIT ?"
+            params.append(limit)
+            
+            rows = conn.execute(sql, params).fetchall()
+        except Exception as e:
+            # Fallback to LIKE search if FTS5 fails
+            print(f"FTS5 search failed, falling back to LIKE: {e}")
+            sql = "SELECT * FROM knowledge_entries WHERE title LIKE ? OR content LIKE ?"
+            like_param = f"%{query}%"
+            params = [like_param, like_param]
+            if project_id:
+                sql += " AND project_id = ?"
+                params.append(project_id)
+            sql += " LIMIT ?"
+            params.append(limit)
+            rows = conn.execute(sql, params).fetchall()
+        
         entries = []
         for row in rows:
             entry = dict(row)

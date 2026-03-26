@@ -240,6 +240,19 @@ async function search() {
 
   try {
     const response = await fetch(`${SERVER_URL}/api/knowledge/unified/${encodeURIComponent(query)}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Search error:', response.status, errorText);
+      resultsDiv.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">❌</div>
+          <p>Search failed (${response.status})</p>
+        </div>
+      `;
+      return;
+    }
+    
     const results = await response.json();
     
     if (results.length === 0) {
