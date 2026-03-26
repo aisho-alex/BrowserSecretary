@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Graph</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: white;
+      min-height: 100vh;
+    }
+    
+    #graph-container {
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    .controls {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+      border-radius: 12px;
+      z-index: 100;
+    }
+    
+    .controls h2 {
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+    
+    .controls select {
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      background: rgba(255,255,255,0.2);
+      color: white;
+      margin-right: 8px;
+    }
+    
+    .controls button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: #667eea;
+      color: white;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    
+    .controls button:hover {
+      opacity: 0.9;
+    }
+    
+    .node-info {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      padding: 16px;
+      border-radius: 12px;
+      max-width: 400px;
+      z-index: 100;
+      display: none;
+    }
+    
+    .node-info h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+      color: #667eea;
+    }
+    
+    .node-info p {
+      font-size: 13px;
+      color: rgba(255,255,255,0.8);
+      line-height: 1.6;
+    }
+    
+    .node-info .tags {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    
+    .node-info .tag {
+      background: rgba(102, 126, 234, 0.3);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+    
+    .loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+    }
+    
+    .stats {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div id="graph-container"></div>
+  
+  <div class="controls">
+    <h2>🕸️ Knowledge Graph</h2>
+    <select id="project-select">
+      <option value="">All Projects</option>
+    </select>
+    <button id="refresh-btn">Refresh</button>
+    <button id="download-btn">Download</button>
+  </div>
+  
+  <div class="stats" id="stats">
+    Nodes: <span id="node-count">0</span> | Edges: <span id="edge-count">0</span>
+  </div>
+  
+  <div class="node-info" id="node-info">
+    <h3 id="node-title"></h3>
+    <p id="node-content"></p>
+    <div class="tags" id="node-tags"></div>
+  </div>
+  
+  <div class="loading" id="loading">Loading graph...</div>
+
+  <!-- Vis.js Network -->
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  
+  <script>
+    const SERVER_URL = 'http://127.0.0.1:8000';
+    let network = null;
+    let nodes = null;
+    let edges = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      loadProjects();
+      initNetwork();
+      loadGraph();
+    });
+
+    async function loadProjects() {
+      try {
+        const response = await fetch(`${SERVER_URL}/api/projects/`);
+        const projects = await response.json();
+        
+        const select = document.getElementById('project-select');
+        projects.forEach(p => {
+          const option = document.createElement('option');
+          option.value = p.id;
+          option.textContent = p.name;
+          select.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+      }
+    }
+
+    function initNetwork() {
+      const container = document.getElementById('graph-container');
+      
+      nodes = new vis.DataSet([]);
+      edges = new vis.DataSet([]);
+      
+      const data = { nodes, edges };
+      
+      const options = {
+        nodes: {
+          shape: 'dot',
+          size: 20,
+          font: {
+            size: 14,
+            color: '#ffffff'
+          },
+          borderWidth: 2,
+          shadow: true
+        },
+        edges: {
+          width: 2,
+          color: { color: '#667eea', highlight: '#764ba2' },
+          arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+          smooth: { type: 'continuous' }
+        },
+        physics: {
+          stabilization: { iterations: 200 },
+          barnesHut: {
+            gravitationalConstant: -2000,
+            springConstant: 0.04
+          }
+        },
+        interaction: {
+          hover: true,
+          tooltipDelay: 200
+        }
+      };
+      
+      network = new vis.Network(container, data, options);
+      
+      // Node click handler
+      network.on('click', (params) => {
+        if (params.nodes.length > 0) {
+          const nodeId = params.nodes[0];
+          showNodeInfo(nodeId);
+        } else {
+          hideNodeInfo();
+        }
+      });
+    }
+
+    async function loadGraph() {
+      document.getElementById('loading').style.display = 'block';
+      
+      const projectId = document.getElementById('project-select').value;
+      const url = `${SERVER_URL}/api/graph/${projectId ? `?project_id=${projectId}` : ''}`;
+      
+      try {
+        const response = await fetch(url);
+        const graphData = await response.json();
+        
+        // Clear existing data
+        nodes.clear();
+        edges.clear();
+        
+        // Add nodes with colors based on tags
+        const nodeData = graphData.nodes.map((n, i) => ({
+          id: n.id,
+          label: n.label,
+          title: n.title,
+          tags: n.tags,
+          color: getNodeColor(n.tags),
+          x: Math.cos(i / graphData.nodes.length * 2 * Math.PI) * 300,
+          y: Math.sin(i / graphData.nodes.length * 2 * Math.PI) * 300
+        }));
+        
+        nodes.add(nodeData);
+        
+        // Add edges
+        const edgeData = graphData.edges.map(e => ({
+          from: e.source,
+          to: e.target,
+          label: e.type,
+          value: e.weight
+        }));
+        
+        edges.add(edgeData);
+        
+        // Update stats
+        document.getElementById('node-count').textContent = graphData.nodes.length;
+        document.getElementById('edge-count').textContent = graphData.edges.length;
+        
+      } catch (error) {
+        console.error('Failed to load graph:', error);
+      }
+      
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    function getNodeColor(tags) {
+      const colors = {
+        'api': '#10b981',
+        'docs': '#3b82f6',
+        'code': '#8b5cf6',
+        'design': '#ec4899',
+        'bug': '#ef4444',
+        'feature': '#f59e0b'
+      };
+      
+      if (tags && tags.length > 0) {
+        const tag = tags[0].toLowerCase();
+        return colors[tag] || '#667eea';
+      }
+      return '#667eea';
+    }
+
+    function showNodeInfo(nodeId) {
+      const node = nodes.get(nodeId);
+      if (!node) return;
+      
+      document.getElementById('node-title').textContent = node.title;
+      document.getElementById('node-content').textContent = node.label;
+      
+      const tagsDiv = document.getElementById('node-tags');
+      tagsDiv.innerHTML = (node.tags || [])
+        .map(t => `<span class="tag">${t}</span>`)
+        .join('');
+      
+      document.getElementById('node-info').style.display = 'block';
+    }
+
+    function hideNodeInfo() {
+      document.getElementById('node-info').style.display = 'none';
+    }
+
+    // Event handlers
+    document.getElementById('project-select').addEventListener('change', loadGraph);
+    document.getElementById('refresh-btn').addEventListener('click', loadGraph);
+    document.getElementById('download-btn').addEventListener('click', downloadGraph);
+
+    async function downloadGraph() {
+      const projectId = document.getElementById('project-select').value;
+      const url = `${SERVER_URL}/api/graph/${projectId ? `?project_id=${projectId}` : ''}`;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const downloadUrl = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = 'knowledge-graph.json';
+        a.click();
+      } catch (error) {
+        console.error('Download failed:', error);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+// Knowledge Helper - Content Script
+// Handles text selection and inline save popup
+
+class KnowledgeHelperContent {
+  constructor() {
+    this.popup = null;
+    this.serverUrl = 'http://127.0.0.1:8000';
+    this.projects = [];
+    this.selectedText = '';
+    this.init();
+  }
+
+  init() {
+    // Listen for messages from background/popup
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg.type === 'SHOW_SAVE_POPUP') {
+        this.showSavePopup(msg.data);
+      }
+      return true;
+    });
+
+    // Track selection
+    document.addEventListener('mouseup', () => {
+      const selection = window.getSelection().toString().trim();
+      if (selection) {
+        this.selectedText = selection;
+      }
+    });
+  }
+
+  async showSavePopup(contextData = {}) {
+    if (this.popup) {
+      this.popup.remove();
+    }
+
+    this.popup = document.createElement('div');
+    this.popup.className = 'kh-container';
+    this.popup.innerHTML = `
+      <div class="kh-popup">
+        <div class="kh-header">
+          <h3>📚 Save to Knowledge Base</h3>
+          <button class="kh-close">&times;</button>
+        </div>
+        <div class="kh-body">
+          <div class="kh-selection-info" id="selection-preview" style="display: none;">
+            <strong>Selected:</strong> <span id="selection-text"></span>
+          </div>
+          <div class="kh-form-group">
+            <label>Project</label>
+            <select id="kh-project">
+              <option value="">Loading projects...</option>
+            </select>
+          </div>
+          <div class="kh-form-group">
+            <label>Title</label>
+            <input type="text" id="kh-title" placeholder="Enter title..." value="${contextData.title || document.title}">
+          </div>
+          <div class="kh-form-group">
+            <label>Content</label>
+            <textarea id="kh-content" placeholder="Enter or paste content...">${contextData.selection || ''}</textarea>
+          </div>
+          <div class="kh-form-group">
+            <label>Tags (comma separated)</label>
+            <div class="kh-tags-input" id="kh-tags-container">
+              <input type="text" class="kh-tag-input" id="kh-tag-input" placeholder="Add tags...">
+            </div>
+          </div>
+          <div class="kh-actions">
+            <button class="kh-btn kh-btn-secondary" id="kh-cancel">Cancel</button>
+            <button class="kh-btn kh-btn-primary" id="kh-save">Save</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(this.popup);
+
+    // Load projects
+    await this.loadProjects();
+
+    // Setup event handlers
+    this.setupEventHandlers();
+  }
+
+  async loadProjects() {
+    try {
+      const response = await fetch(`${this.serverUrl}/api/projects/`);
+      const projects = await response.json();
+      this.projects = projects;
+
+      const select = this.popup.querySelector('#kh-project');
+      select.innerHTML = projects.length 
+        ? projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')
+        : '<option value="">No projects - create one first</option>';
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      const select = this.popup.querySelector('#kh-project');
+      select.innerHTML = '<option value="">Server not available</option>';
+    }
+  }
+
+  setupEventHandlers() {
+    // Close button
+    this.popup.querySelector('.kh-close').addEventListener('click', () => {
+      this.popup.remove();
+      this.popup = null;
+    });
+
+    // Cancel button
+    this.popup.querySelector('#kh-cancel').addEventListener('click', () => {
+      this.popup.remove();
+      this.popup = null;
+    });
+
+    // Save button
+    this.popup.querySelector('#kh-save').addEventListener('click', () => this.saveEntry());
+
+    // Tags input
+    const tagInput = this.popup.querySelector('#kh-tag-input');
+    tagInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        this.addTag(tagInput.value.trim().replace(',', ''));
+        tagInput.value = '';
+      }
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (this.popup && !this.popup.contains(e.target)) {
+        this.popup.remove();
+        this.popup = null;
+      }
+    }, { once: true });
+  }
+
+  addTag(tag) {
+    if (!tag) return;
+    
+    const container = this.popup.querySelector('#kh-tags-container');
+    const input = this.popup.querySelector('#kh-tag-input');
+    
+    const tagEl = document.createElement('span');
+    tagEl.className = 'kh-tag';
+    tagEl.innerHTML = `${tag}<span class="kh-tag-remove">&times;</span>`;
+    
+    tagEl.querySelector('.kh-tag-remove').addEventListener('click', () => {
+      tagEl.remove();
+    });
+    
+    container.insertBefore(tagEl, input);
+  }
+
+  getTags() {
+    const tags = [];
+    this.popup.querySelectorAll('.kh-tag').forEach(tagEl => {
+      const text = tagEl.textContent.replace('×', '').trim();
+      if (text) tags.push(text);
+    });
+    return tags;
+  }
+
+  async saveEntry() {
+    const projectId = this.popup.querySelector('#kh-project').value;
+    const title = this.popup.querySelector('#kh-title').value.trim();
+    const content = this.popup.querySelector('#kh-content').value.trim();
+    const tags = this.getTags();
+
+    if (!projectId) {
+      this.showNotification('Please select a project', 'error');
+      return;
+    }
+    if (!title) {
+      this.showNotification('Please enter a title', 'error');
+      return;
+    }
+    if (!content) {
+      this.showNotification('Please enter content', 'error');
+      return;
+    }
+
+    const saveBtn = this.popup.querySelector('#kh-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    try {
+      const response = await fetch(`${this.serverUrl}/api/knowledge/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          title: title,
+          content: content,
+          page_url: window.location.href,
+          page_title: document.title,
+          selection: this.selectedText || null,
+          tags: tags
+        })
+      });
+
+      if (!response.ok) throw new Error('Failed to save');
+
+      this.showNotification('Saved successfully!', 'success');
+      this.popup.remove();
+      this.popup = null;
+    } catch (error) {
+      console.error('Save error:', error);
+      this.showNotification('Failed to save entry', 'error');
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+    }
+  }
+
+  showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `kh-notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
+  }
+}
+
+// Initialize content script
+const knowledgeHelper = new KnowledgeHelperContent();

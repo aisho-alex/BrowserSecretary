@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Helper</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 400px;
+      min-height: 500px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f7fa;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      margin-bottom: 4px;
+    }
+
+    .header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .tabs {
+      display: flex;
+      background: white;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      background: #f5f5f5;
+    }
+
+    .tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+      font-weight: 500;
+    }
+
+    .content {
+      padding: 16px;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .search-box {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .search-box::before {
+      content: '🔍';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+    }
+
+    .results {
+      max-height: 350px;
+      overflow-y: auto;
+    }
+
+    .result-item {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      border: 1px solid #e0e0e0;
+      transition: all 0.2s;
+    }
+
+    .result-item:hover {
+      border-color: #667eea;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+    }
+
+    .result-item h4 {
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    .result-item p {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .result-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .tag {
+      background: #e8ebf7;
+      color: #667eea;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+    }
+
+    .qa-answer {
+      background: white;
+      border-radius: 8px;
+      padding: 16px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .qa-answer h4 {
+      font-size: 14px;
+      color: #667eea;
+      margin-bottom: 12px;
+    }
+
+    .qa-answer p {
+      font-size: 13px;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .qa-sources {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .qa-sources h5 {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+
+    .status-dot.connected {
+      background: #10b981;
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .quick-btn {
+      flex: 1;
+      padding: 8px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .quick-btn:hover {
+      border-color: #667eea;
+      background: #f5f7ff;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+
+    .project-select {
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📚 Knowledge Helper</h1>
+    <p>Save & search your knowledge base</p>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="save">Save</div>
+    <div class="tab" data-tab="search">Search</div>
+    <div class="tab" data-tab="qa">Q&A</div>
+    <div class="tab" data-tab="graph">Graph</div>
+  </div>
+
+  <div class="content">
+    <div class="status-indicator">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Checking server...</span>
+    </div>
+
+    <!-- Save Tab -->
+    <div class="tab-content active" id="tab-save">
+      <div class="form-group">
+        <label>Project</label>
+        <select id="save-project">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" id="save-title" placeholder="Enter title...">
+      </div>
+      <div class="form-group">
+        <label>Content</label>
+        <textarea id="save-content" placeholder="Enter or paste content..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Tags (comma separated)</label>
+        <input type="text" id="save-tags" placeholder="tag1, tag2, tag3">
+      </div>
+      <button class="btn btn-primary" id="save-btn">Save Entry</button>
+    </div>
+
+    <!-- Search Tab -->
+    <div class="tab-content" id="tab-search">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Search knowledge base...">
+      </div>
+      <div class="results" id="search-results">
+        <div class="empty-state">
+          <div class="empty-state-icon">🔍</div>
+          <p>Search your knowledge base</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Q&A Tab -->
+    <div class="tab-content" id="tab-qa">
+      <div class="form-group">
+        <label>Ask a question</label>
+        <textarea id="qa-question" placeholder="Type your question..."></textarea>
+      </div>
+      <button class="btn btn-primary" id="qa-btn">Ask</button>
+      <div id="qa-answer" style="display: none; margin-top: 16px;"></div>
+    </div>
+
+    <!-- Graph Tab -->
+    <div class="tab-content" id="tab-graph">
+      <div class="form-group">
+        <label>Filter by Project</label>
+        <select id="graph-project">
+          <option value="">All Projects</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="graph-btn">Open Graph View</button>
+      <div class="quick-actions">
+        <button class="quick-btn" id="graph-download">Download Graph</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
