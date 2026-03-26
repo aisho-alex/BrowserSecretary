@@ -1,5 +1,5 @@
 """Knowledge entries API router."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -25,11 +25,11 @@ class KnowledgeUpdate(BaseModel):
 
 @router.get("/")
 async def list_knowledge(
+    request: Request,
     project_id: Optional[str] = None,
     tags: Optional[str] = None,
     limit: int = 50,
-    offset: int = 0,
-    request=None
+    offset: int = 0
 ):
     """List knowledge entries."""
     kb = request.app.state.kb_client
@@ -38,7 +38,7 @@ async def list_knowledge(
 
 
 @router.get("/{entry_id}")
-async def get_knowledge(entry_id: str, request=None):
+async def get_knowledge(entry_id: str, request: Request):
     """Get knowledge entry."""
     kb = request.app.state.kb_client
     entry = kb.get_knowledge(entry_id)
@@ -48,7 +48,7 @@ async def get_knowledge(entry_id: str, request=None):
 
 
 @router.post("/")
-async def create_knowledge(data: KnowledgeCreate, request=None):
+async def create_knowledge(data: KnowledgeCreate, request: Request):
     """Create knowledge entry from browser extension."""
     kb = request.app.state.kb_client
     return kb.create_knowledge(
@@ -64,7 +64,7 @@ async def create_knowledge(data: KnowledgeCreate, request=None):
 
 
 @router.patch("/{entry_id}")
-async def update_knowledge(entry_id: str, data: KnowledgeUpdate, request=None):
+async def update_knowledge(entry_id: str, data: KnowledgeUpdate, request: Request):
     """Update knowledge entry."""
     kb = request.app.state.kb_client
     entry = kb.update_knowledge(entry_id, data.title, data.content, data.tags)
@@ -74,7 +74,7 @@ async def update_knowledge(entry_id: str, data: KnowledgeUpdate, request=None):
 
 
 @router.delete("/{entry_id}")
-async def delete_knowledge(entry_id: str, request=None):
+async def delete_knowledge(entry_id: str, request: Request):
     """Delete knowledge entry."""
     kb = request.app.state.kb_client
     if not kb.delete_knowledge(entry_id):
@@ -83,14 +83,14 @@ async def delete_knowledge(entry_id: str, request=None):
 
 
 @router.get("/search/{query}")
-async def search_knowledge(query: str, project_id: Optional[str] = None, limit: int = 20, request=None):
+async def search_knowledge(query: str, request: Request, project_id: Optional[str] = None, limit: int = 20):
     """Full-text search in knowledge."""
     kb = request.app.state.kb_client
     return kb.search_knowledge(query, project_id, limit)
 
 
 @router.get("/unified/{query}")
-async def unified_search(query: str, project_id: Optional[str] = None, limit: int = 10, request=None):
+async def unified_search(query: str, request: Request, project_id: Optional[str] = None, limit: int = 10):
     """Unified search across all entities."""
     kb = request.app.state.kb_client
     return kb.unified_search(query, project_id, limit)

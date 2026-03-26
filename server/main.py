@@ -20,6 +20,12 @@ async def lifespan(app: FastAPI):
     )
     app.state.kb_client = kb_client
     
+    # Auto-create default project if not exists
+    existing = kb_client.list_projects(limit=1)
+    if not existing:
+        kb_client.create_project("Default", "Default project for quick saves")
+        print("✅ Created 'Default' project")
+    
     yield
     
     # Cleanup

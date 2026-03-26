@@ -1,5 +1,5 @@
 """Tags API router."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Optional
 from pydantic import BaseModel
 
@@ -12,21 +12,21 @@ class TagCreate(BaseModel):
 
 
 @router.get("/")
-async def list_tags(request=None):
+async def list_tags(request: Request):
     """List all tags."""
     kb = request.app.state.kb_client
     return kb.list_tags()
 
 
 @router.post("/")
-async def create_tag(data: TagCreate, request=None):
+async def create_tag(data: TagCreate, request: Request):
     """Create or get existing tag."""
     kb = request.app.state.kb_client
     return kb.get_or_create_tag(data.name, data.color)
 
 
 @router.delete("/{tag_id}")
-async def delete_tag(tag_id: str, request=None):
+async def delete_tag(tag_id: str, request: Request):
     """Delete tag."""
     kb = request.app.state.kb_client
     if not kb.delete_tag(tag_id):

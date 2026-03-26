@@ -1,5 +1,5 @@
 """Q&A API router with LLM integration."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Optional, List
 from pydantic import BaseModel
 import httpx
@@ -23,7 +23,7 @@ class QuestionResponse(BaseModel):
 
 
 @router.post("/", response_model=QuestionResponse)
-async def ask_question(data: QuestionRequest, request=None):
+async def ask_question(data: QuestionRequest, request: Request):
     """Ask question using LLM with knowledge base context."""
     kb = request.app.state.kb_client
     settings = get_settings()

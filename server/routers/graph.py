@@ -1,5 +1,5 @@
 """Knowledge Graph API router."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Optional
 from pydantic import BaseModel
 
@@ -14,14 +14,14 @@ class RelationCreate(BaseModel):
 
 
 @router.get("/")
-async def get_graph(project_id: Optional[str] = None, max_nodes: int = 100, request=None):
+async def get_graph(request: Request, project_id: Optional[str] = None, max_nodes: int = 100):
     """Get knowledge graph data for visualization."""
     kb = request.app.state.kb_client
     return kb.get_graph(project_id, max_nodes)
 
 
 @router.post("/relations")
-async def add_relation(data: RelationCreate, request=None):
+async def add_relation(data: RelationCreate, request: Request):
     """Add relation between knowledge entries."""
     kb = request.app.state.kb_client
     
@@ -44,10 +44,10 @@ async def add_relation(data: RelationCreate, request=None):
 
 @router.delete("/relations")
 async def remove_relation(
+    request: Request,
     source_id: str,
     target_id: str,
-    relation_type: Optional[str] = None,
-    request=None
+    relation_type: Optional[str] = None
 ):
     """Remove relation between entries."""
     kb = request.app.state.kb_client

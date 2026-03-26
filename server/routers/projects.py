@@ -1,16 +1,9 @@
 """Projects API router."""
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Request
+from typing import Optional
 from pydantic import BaseModel
 
-from services.kb_client import KnowledgeBaseClient
-
 router = APIRouter()
-
-
-def get_kb(request) -> KnowledgeBaseClient:
-    """Get KB client from app state."""
-    return request.app.state.kb_client
 
 
 class ProjectCreate(BaseModel):
@@ -24,14 +17,14 @@ class ProjectUpdate(BaseModel):
 
 
 @router.get("/")
-async def list_projects(limit: int = 50, offset: int = 0, request=Depends(get_kb)):
+async def list_projects(request: Request, limit: int = 50, offset: int = 0):
     """List all projects."""
     kb = request.app.state.kb_client
     return kb.list_projects(limit, offset)
 
 
 @router.get("/{project_id}")
-async def get_project(project_id: str, request=Depends(get_kb)):
+async def get_project(project_id: str, request: Request):
     """Get project by ID."""
     kb = request.app.state.kb_client
     project = kb.get_project(project_id)
@@ -41,14 +34,14 @@ async def get_project(project_id: str, request=Depends(get_kb)):
 
 
 @router.post("/")
-async def create_project(data: ProjectCreate, request=Depends(get_kb)):
+async def create_project(data: ProjectCreate, request: Request):
     """Create new project."""
     kb = request.app.state.kb_client
     return kb.create_project(data.name, data.description)
 
 
 @router.patch("/{project_id}")
-async def update_project(project_id: str, data: ProjectUpdate, request=Depends(get_kb)):
+async def update_project(project_id: str, data: ProjectUpdate, request: Request):
     """Update project."""
     kb = request.app.state.kb_client
     project = kb.update_project(project_id, data.name, data.description)
@@ -58,7 +51,7 @@ async def update_project(project_id: str, data: ProjectUpdate, request=Depends(g
 
 
 @router.delete("/{project_id}")
-async def delete_project(project_id: str, request=Depends(get_kb)):
+async def delete_project(project_id: str, request: Request):
     """Delete project."""
     kb = request.app.state.kb_client
     if not kb.delete_project(project_id):
@@ -67,7 +60,7 @@ async def delete_project(project_id: str, request=Depends(get_kb)):
 
 
 @router.get("/search/{query}")
-async def search_projects(query: str, limit: int = 10, request=Depends(get_kb)):
+async def search_projects(query: str, request: Request, limit: int = 10):
     """Search projects."""
     kb = request.app.state.kb_client
     return kb.search_projects(query, limit)
