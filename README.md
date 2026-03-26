@@ -1,379 +1,239 @@
-# 🗄️ Knowledge Base MCP Server
+# 📚 BrowserSecretary
 
-**MCP-сервер для управления знаниями и требованиями по проектам с мгновенным полнотекстовым поиском.**
+**Браузерное расширение для сохранения знаний с AI-помощником и графом связей**
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+Сохраняйте статьи, документацию, сниппеты кода и заметки с любых веб-страниц. Задавайте вопросы — AI найдёт ответ в вашей базе знаний. Визуализируйте связи между записями.
 
-## 🎯 Возможности
+---
 
-| Фича | Описание |
-|------|----------|
-| **Проекты** | Создание и управление проектами |
-| **Требования** | Требования с приоритетами и статусами |
-| **Знания** | Записи с тегами и полнотекстовым поиском |
-| **FTS5** | Мгновенный поиск через SQLite FTS5 |
-| **CLI** | Удобный интерфейс командной строки |
-| **MCP** | 19 инструментов для AI-ассистентов |
+## ✨ Возможности
 
-## 📦 Установка
+| Функция | Описание |
+|---------|----------|
+| 📝 **Сохранение** | Выделите текст → ПКМ → "Save to Knowledge Base" или через popup |
+| 🔍 **Поиск** | Полнотекстовый поиск по всем записям (SQLite FTS5) |
+| 🤖 **Q&A** | Задайте вопрос — AI ответит на основе вашей базы знаний |
+| 🕸️ **Граф** | Интерактивная визуализация связей между записями |
+| 🏷️ **Теги** | Организация записей с помощью тегов |
+| 📂 **Проекты** | Группировка записей по проектам |
+
+---
+
+## 🚀 Быстрый старт
+
+### 1. Запуск сервера
 
 ```bash
-# Клонирование
-git clone https://github.com/aisho-alex/knowledge_base_mcp.git
-cd knowledge_base_mcp
+cd server
 
-# Создание виртуального окружения
+# Создаём venv
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
 # или: venv\Scripts\activate  # Windows
 
-# Установка
-pip install -e .
+# Установка зависимостей
+pip install -r requirements.txt
+
+# Конфигурация
+cp .env.example .env
+# Отредактируйте .env — добавьте LLM_API_KEY
+
+# Запуск
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-## 🚀 Быстрый старт
+### 2. Установка расширения
 
-### 1. Инициализация
+**Chrome / Edge:**
+1. Откройте `chrome://extensions/`
+2. Включите "Режим разработчика"
+3. Нажмите "Загрузить распакованное расширение"
+4. Выберите папку `extension`
 
-```bash
-python -m kb_mcp.cli init
-```
+**Firefox:**
+1. Откройте `about:debugging#/runtime/this-firefox`
+2. Нажмите "Load Temporary Add-on"
+3. Выберите `extension/manifest.json`
 
-### 2. Создание проекта
+### 3. Иконки
 
-```bash
-python -m kb_mcp.cli project create "E-Commerce Platform" \
-    --desc "Платформа электронной коммерции"
-```
+Создайте иконки в `extension/icons/`:
+- `icon16.png` (16×16)
+- `icon48.png` (48×48)
+- `icon128.png` (128×128)
 
-**Результат:**
-```
-✅ Project created!
-Name: E-Commerce Platform
-ID: 3d8e96cc-3e0f-4329-980b-1376dfa8314e
-```
-
-### 3. Добавление знаний
-
-```bash
-# С тегами
-python -m kb_mcp.cli kb add \
-    "3d8e96cc-3e0f-4329-980b-1376dfa8314e" \
-    "OAuth2 Authentication" \
-    "Flow: Authorization Code Grant. Providers: Google, GitHub." \
-    --tags auth,security,oauth2
-
-# Без тегов
-python -m kb_mcp.cli kb add \
-    "3d8e96cc-3e0f-4329-980b-1376dfa8314e" \
-    "API Endpoints" \
-    "REST API: GET /users, POST /orders, DELETE /products"
-```
-
-### 4. Поиск
-
-```bash
-# Поиск по всем сущностям
-python -m kb_mcp.cli search "OAuth2"
-
-# Поиск только в знаниях
-python -m kb_mcp.cli kb search "API"
-
-# Фильтрация по тегам
-python -m kb_mcp.cli kb list --tags auth,security
-```
-
-## 📋 Справка по командам
-
-### Проекты
-
-| Команда | Описание |
-|---------|----------|
-| `project list` | Список всех проектов |
-| `project create <name>` | Создать проект |
-| `project get <id>` | Детали проекта |
-| `project search <query>` | Поиск проектов |
-| `project delete <id>` | Удалить проект |
-
-### Требования
-
-| Команда | Описание |
-|---------|----------|
-| `req list <project_id>` | Список требований |
-| `req create <project_id> <title> <content>` | Создать требование |
-| `req get <id>` | Детали требования |
-
-**Приоритеты:** `high`, `medium`, `low`
-
-```bash
-python -m kb_mcp.cli req create \
-    "3d8e96cc-..." \
-    "Авторизация" \
-    "Реализовать OAuth2 через Google и GitHub" \
-    --priority high
-```
-
-### Знания (Knowledge)
-
-| Команда | Описание |
-|---------|----------|
-| `kb list` | Все записи (опционально: `--project`, `--tags`) |
-| `kb add <project_id> <title> <content>` | Добавить запись |
-| `kb get <id>` | Детали записи |
-| `kb search <query>` | Полнотекстовый поиск |
-
-**Опции:**
-- `--tags` — теги через запятую (например: `--tags api,docs`)
-- `--req` — привязать к требованию
-
-### Универсальный поиск
-
-```bash
-python -m kb_mcp.cli search "OAuth2" --limit 20
-```
-
-Ищет по всем проектам, требованиям и знаниям одновременно.
+---
 
 ## 🏗️ Архитектура
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         CLI / MCP                           │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                     Service Layer                           │
-│  ┌────────────┐ ┌────────────┐ ┌────────────────────────┐  │
-│  │  Project   │ │Requirement │ │       Knowledge        │  │
-│  │  Service   │ │  Service   │ │        Service         │  │
-│  └────────────┘ └────────────┘ └────────────────────────┘  │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────▼──────────────────────────────────┐
-│                     Repository Layer                         │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │              SQLite + FTS5                            │  │
-│  │  projects │ requirements │ knowledge_entries │ tags  │  │
-│  └────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                   Браузерное расширение (MV3)                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
+│  │  Popup   │  │ Content  │  │Background│  │    Graph     │    │
+│  │   UI     │  │  Script  │  │ Worker   │  │   (vis.js)   │    │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘    │
+└───────┼─────────────┼─────────────┼───────────────┼─────────────┘
+        │             │             │               │
+        └─────────────┴──────┬──────┴───────────────┘
+                             │ HTTP REST API
+┌────────────────────────────▼────────────────────────────────────┐
+│                      FastAPI Backend                             │
+│                                                                  │
+│  /api/projects/    — CRUD для проектов                          │
+│  /api/knowledge/   — CRUD для записей + поиск                   │
+│  /api/tags/        — Управление тегами                          │
+│  /api/qa/          — Q&A с LLM                                  │
+│  /api/graph/       — Данные для графа знаний                    │
+│                                                                  │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────────┐
+│               SQLite + FTS5 (полнотекстовый поиск)               │
+│                                                                  │
+│  projects | knowledge_entries | tags | entry_tags | relations   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Модель данных
-
-```
-Проект (Project)
-    │
-    ├── Требование (Requirement)
-    │       └── title, content, priority, status
-    │
-    └── Запись знания (KnowledgeEntry)
-            └── title, content, tags[], source_url
-```
-
-## 🔧 MCP Tools
-
-Сервер предоставляет **19 инструментов** для интеграции с AI-ассистентами:
-
-### Проекты
-- `projects_list` — список проектов
-- `project_create` — создать проект
-- `project_get` — получить проект
-- `project_update` — обновить проект
-- `project_delete` — удалить проект
-- `project_search` — поиск проектов
-
-### Требования
-- `requirements_list` — список требований
-- `requirement_create` — создать требование
-- `requirement_get` — получить требование
-- `requirement_update` — обновить требование
-- `requirement_delete` — удалить требование
-
-### Знания
-- `knowledge_list` — список записей
-- `knowledge_create` — создать запись
-- `knowledge_get` — получить запись
-- `knowledge_update` — обновить запись
-- `knowledge_delete` — удалить запись
-- `knowledge_search` — полнотекстовый поиск
-
-### Утилиты
-- `unified_search` — универсальный поиск
-- `tags_list` — список тегов
-
-### Подключение к Claude Desktop
-
-Добавьте в `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "kb-mcp": {
-      "command": "python",
-      "args": ["-m", "kb_mcp.main"]
-    }
-  }
-}
-```
+---
 
 ## 📁 Структура проекта
 
 ```
-kb-mcp-server/
-├── README.md              # Этот файл
-├── SPEC.md               # Техническая спецификация
-├── pyproject.toml       # Конфигурация Python-пакета
-├── .gitignore
-├── data/
-│   └── kb.db            # SQLite база данных
-└── src/
-    └── kb_mcp/
-        ├── __init__.py
-        ├── main.py          # Точка входа MCP
-        ├── cli.py           # CLI интерфейс
-        ├── config.py       # Конфигурация
-        ├── models/          # Pydantic модели
-        ├── db/             # SQLite + FTS5
-        │   ├── database.py
-        │   ├── schema.py
-        │   └── repositories/
-        ├── services/        # Бизнес-логика
-        └── mcp/
-            └── tools.py     # MCP инструменты
+BrowserSecretary/
+│
+├── server/                         # FastAPI Backend
+│   ├── main.py                     # Точка входа
+│   ├── config.py                   # Настройки из .env
+│   ├── requirements.txt            # Зависимости Python
+│   ├── .env.example                # Шаблон конфигурации
+│   │
+│   ├── routers/
+│   │   ├── projects.py             # API проектов
+│   │   ├── knowledge.py            # API записей + поиск
+│   │   ├── tags.py                 # API тегов
+│   │   ├── qa.py                   # Q&A с LLM
+│   │   └── graph.py                # API графа
+│   │
+│   └── services/
+│       └── kb_client.py            # Клиент базы знаний
+│
+├── extension/                      # Browser Extension (Manifest V3)
+│   ├── manifest.json               # Манифест расширения
+│   │
+│   ├── background/
+│   │   └── background.js           # Service Worker (context menu)
+│   │
+│   ├── content/
+│   │   ├── content.js              # Content script (inline popup)
+│   │   └── content.css             # Стили
+│   │
+│   ├── popup/
+│   │   ├── popup.html              # UI попапа
+│   │   └── popup.js                # Логика (Save, Search, Q&A)
+│   │
+│   ├── graph/
+│   │   └── graph.html              # Визуализация графа (vis.js)
+│   │
+│   └── icons/                      # Иконки расширения
+│       ├── icon16.png
+│       ├── icon48.png
+│       └── icon128.png
+│
+└── src/kb_mcp/                     # MCP server (опционально)
 ```
-
-## 🔍 Примеры использования
-
-### Управление требованиями проекта
-
-```bash
-# Создаём требования
-PROJECT_ID="3d8e96cc-..."
-
-python -m kb_mcp.cli req create "$PROJECT_ID" \
-    "FR-001: Авторизация" \
-    "Реализовать вход через Google OAuth2" \
-    --priority high
-
-python -m kb_mcp.cli req create "$PROJECT_ID" \
-    "FR-002: Каталог товаров" \
-    "Отображение товаров с пагинацией" \
-    --priority medium
-
-python -m kb_mcp.cli req create "$PROJECT_ID" \
-    "FR-003: Корзина" \
-    "Добавление, удаление, изменение количества товаров" \
-    --priority high
-
-# Смотрим требования
-python -m kb_mcp.cli req list "$PROJECT_ID"
-```
-
-**Результат:**
-```
-              Requirements (3)              
-┏━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
-┃ Priority    ┃ Status      ┃ Title          ┃
-┡━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
-│ high        │ open        │ FR-001: Автор │
-│ medium      │ open        │ FR-002: Катало│
-│ high        │ open        │ FR-003: Корзи │
-└─────────────┴─────────────┴────────────────┘
-```
-
-### Добавление документации
-
-```bash
-# API документация
-python -m kb_mcp.cli kb add "$PROJECT_ID" \
-    "REST API v2" \
-    "Base URL: /api/v2
-    
-    Endpoints:
-    GET  /products - список товаров
-    GET  /products/{id} - товар по ID
-    POST /orders - создать заказ
-    GET  /users/me - текущий пользователь" \
-    --tags api,docs,rest
-
-# Техническая заметка
-python -m kb_mcp.cli kb add "$PROJECT_ID" \
-    "Авторизация Google OAuth2" \
-    "Scopes: openid, email, profile
-    
-    Endpoints:
-    Authorization: https://accounts.google.com/o/oauth2/v2/auth
-    Token: https://oauth2.googleapis.com/token" \
-    --tags auth,google,oauth2
-
-# Заметка о микросервисах
-python -m kb_mcp.cli kb add "$PROJECT_ID" \
-    "Архитектура микросервисов" \
-    "Services:
-    - auth-service: :8001 (OAuth2)
-    - product-service: :8002
-    - order-service: :8003
-    - notification-service: :8004
-    
-    Message Broker: Redis Streams" \
-    --tags architecture,microservices
-```
-
-### Поиск по тегам
-
-```bash
-# Все записи с тегом auth
-python -m kb_mcp.cli kb list --tags auth
-
-# Записи с несколькими тегами
-python -m kb_mcp.cli kb list --tags api,docs
-
-# Все записи проекта
-python -m kb_mcp.cli kb list --project "$PROJECT_ID"
-```
-
-## ⚙️ Конфигурация
-
-### Переменные окружения
-
-| Переменная | По умолчанию | Описание |
-|-----------|---------------|---------|
-| `KB_DB_PATH` | `data/kb.db` | Путь к базе данных |
-| `KB_DATA_DIR` | `data/` | Директория для данных |
-
-```bash
-# Пример с кастомным путём
-export KB_DB_PATH=/home/user/my_kb.db
-python -m kb_mcp.cli init
-```
-
-## 🛠️ Разработка
-
-```bash
-# Установка зависимостей для разработки
-pip install -e ".[dev]"
-
-# Запуск тестов
-pytest tests/
-
-# Проверка кода
-ruff check src/
-mypy src/
-```
-
-## 📄 Лицензия
-
-MIT License — используйте свободно!
-
-## 🤝 Разработка
-
-1. Fork репозитория
-2. Создайте ветку (`git checkout -b feature/amazing-feature`)
-3. Commit (`git commit -m 'feat: add amazing feature'`)
-4. Push (`git push origin feature/amazing-feature`)
-5. Open Pull Request
 
 ---
 
-**Made with ❤️ for better knowledge management**
+## 🔧 Использование
+
+### Сохранение с веб-страницы
+
+**Способ 1: Context Menu**
+1. Выделите текст на странице
+2. Правый клик → "📚 Save to Knowledge Base"
+3. Заполните форму и нажмите Save
+
+**Способ 2: Popup**
+1. Кликните на иконку расширения
+2. Вкладка "Save"
+3. Выберите проект, введите title, content, tags
+4. Нажмите "Save Entry"
+
+### Поиск
+
+1. Кликните на иконку расширения
+2. Вкладка "Search"
+3. Введите запрос — результаты появятся мгновенно
+
+### Вопрос-ответ (Q&A)
+
+1. Кликните на иконку расширения
+2. Вкладка "Q&A"
+3. Задайте вопрос на естественном языке
+4. AI найдёт релевантные записи и сформирует ответ
+
+### Граф знаний
+
+1. Кликните на иконку расширения
+2. Вкладка "Graph"
+3. Выберите проект (или "All Projects")
+4. Нажмите "Open Graph View"
+5. Исследуйте связи между записями
+
+---
+
+## ⚙️ Конфигурация
+
+### .env файл
+
+```bash
+# Server
+HOST=127.0.0.1
+PORT=8000
+DEBUG=true
+
+# Knowledge Base
+KB_DB_PATH=data/kb.db
+KB_DATA_DIR=data
+
+# LLM API (OpenAI-compatible)
+LLM_API_URL=https://api.openai.com/v1/chat/completions
+LLM_API_KEY=sk-your-key-here
+LLM_MODEL=gpt-4o-mini
+
+# CORS для расширения
+CORS_ORIGINS=chrome-extension://*,moz-extension://*
+```
+
+### Поддерживаемые LLM провайдеры
+
+| Провайдер | API URL |
+|-----------|---------|
+| OpenAI | `https://api.openai.com/v1/chat/completions` |
+| Together AI | `https://api.together.xyz/v1/chat/completions` |
+| Groq | `https://api.groq.com/openai/v1/chat/completions` |
+| OpenRouter | `https://openrouter.ai/api/v1/chat/completions` |
+| Ollama (local) | `http://localhost:11434/v1/chat/completions` |
+
+---
+
+## 📊 API Endpoints
+
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| `GET` | `/api/projects/` | Список проектов |
+| `POST` | `/api/projects/` | Создать проект |
+| `GET` | `/api/knowledge/` | Список записей |
+| `POST` | `/api/knowledge/` | Создать запись |
+| `GET` | `/api/knowledge/search/{query}` | Поиск |
+| `GET` | `/api/knowledge/unified/{query}` | Универсальный поиск |
+| `POST` | `/api/qa/` | Задать вопрос LLM |
+| `GET` | `/api/graph/` | Данные графа |
+| `GET` | `/api/tags/` | Список тегов |
+
+---
+
+## 📝 Лицензия
+
+MIT License
