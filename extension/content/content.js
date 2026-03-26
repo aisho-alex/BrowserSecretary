@@ -84,8 +84,7 @@ class KnowledgeHelperContent {
 
   async loadProjects() {
     try {
-      const response = await fetch(`${this.serverUrl}/api/projects/`);
-      const projects = await response.json();
+      const projects = await this.apiRequest('/api/projects/');
       this.projects = projects;
 
       const select = this.popup.querySelector('#kh-project');
@@ -96,6 +95,7 @@ class KnowledgeHelperContent {
       console.error('Failed to load projects:', error);
       const select = this.popup.querySelector('#kh-project');
       select.innerHTML = '<option value="">Server not available</option>';
+      this.showNotification('Cannot connect to server: ' + error.message, 'error');
     }
   }
 
@@ -184,28 +184,22 @@ class KnowledgeHelperContent {
     saveBtn.textContent = 'Saving...';
 
     try {
-      const response = await fetch(`${this.serverUrl}/api/knowledge/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          title: title,
-          content: content,
-          page_url: window.location.href,
-          page_title: document.title,
-          selection: this.selectedText || null,
-          tags: tags
-        })
+      await this.apiRequest('/api/knowledge/', 'POST', {
+        project_id: projectId,
+        title: title,
+        content: content,
+        page_url: window.location.href,
+        page_title: document.title,
+        selection: this.selectedText || null,
+        tags: tags
       });
-
-      if (!response.ok) throw new Error('Failed to save');
 
       this.showNotification('Saved successfully!', 'success');
       this.popup.remove();
       this.popup = null;
     } catch (error) {
       console.error('Save error:', error);
-      this.showNotification('Failed to save entry', 'error');
+      this.showNotification('Failed to save: ' + error.message, 'error');
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save';
     }

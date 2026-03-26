@@ -1,5 +1,5 @@
 // Knowledge Helper - Background Service Worker
-// Handles context menu and message routing
+// Handles context menu,// Handles context menu, message routing, and API proxy for content scripts
 
 const SERVER_URL = 'http://127.0.0.1:8000';
 
@@ -20,34 +20,54 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'save-to-kb') {
-    // Send message to content script to show popup with selection
-    chrome.tabs.sendMessage(tab.id, {
-      type: 'SHOW_SAVE_POPUP',
-      data: {
-        selection: info.selectionText,
-        title: tab.title
+  if (info.menuItemId === 'save-to-kb' || info.menuItemId === 'save-page-to-kb') {
+    // Try to send message to content script
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'SHOW_SAVE_POPUP',
+        data: {
+          selection: info.selectionText || '',
+          title: tab.title
+        }
+      });
+    } catch (error) {
+      // Content script not loaded - inject it
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/content.js']
+        });
+        
+        // Wait a bit then send message
+        setTimeout(async () => {
+          await chrome.tabs.sendMessage(tab.id, {
+            type: 'SHOW_SAVE_POPUP',
+            data: {
+              selection: info.selectionText || '',
+              title: tab.title
+            }
+          });
+        }, 200);
       }
-    });
-  } else if (info.menuItemId === 'save-page-to-kb') {
-    // Send message to save entire page
-    chrome.tabs.sendMessage(tab.id, {
-      type: 'SHOW_SAVE_POPUP',
-      data: {
-        selection: '',
-        title: tab.title
-      }
-    });
+    }
   }
 });
 
-// Handle messages from popup
+// Handle messages from popup and content scripts
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // API request from popup
   if (msg.type === 'API_REQUEST') {
     handleApiRequest(msg.endpoint, msg.method, msg.data)
       .then(result => sendResponse({ success: true, data: result }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Keep channel open for async response
+  }
+  
+  // API request from content script (different type to distinguish)
+  if (msg.type === 'CONTENT_API_REQUEST') {
+    handleApiRequest(msg.endpoint, msg.method, msg.data)
+      .then(result => sendResponse({ success: true, data: result }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
   }
 });
 
