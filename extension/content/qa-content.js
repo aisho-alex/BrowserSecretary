@@ -283,7 +283,13 @@ class KnowledgeHelperQA {
     popup.className = 'kh-qa-save-popup';
     popup.innerHTML = `
       <div class="kh-qa-save-popup-content">
-        <h4>💾 Сохранить в базу знаний</h4>
+        <div class="kh-qa-save-popup-header">
+          <h4>💾 Сохранить в базу знаний</h4>
+          <div class="kh-qa-popup-controls">
+            <button class="kh-qa-popup-minimize" title="Свернуть">−</button>
+            <button class="kh-qa-popup-close" title="Закрыть">×</button>
+          </div>
+        </div>
         <div class="kh-form-group">
           <label>Проект</label>
           <select id="kh-qa-save-project">
@@ -314,6 +320,8 @@ class KnowledgeHelperQA {
     `;
 
     document.body.appendChild(popup);
+    this.makeDraggable(popup);
+    this.centerPopup(popup);
 
     // Setup handlers
     popup.querySelector('#kh-qa-save-cancel').addEventListener('click', () => popup.remove());
@@ -354,6 +362,68 @@ class KnowledgeHelperQA {
         }
       }, { once: true });
     }, 100);
+  }
+
+  centerPopup(popup) {
+    // Center the popup on screen
+    popup.style.position = 'fixed';
+    popup.style.top = '50%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translate(-50%, -50%)';
+    popup.style.zIndex = '2147483647';
+  }
+
+  makeDraggable(popup) {
+    const header = popup.querySelector('.kh-qa-save-popup-header');
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    header.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      
+      // Get current position
+      const rect = popup.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+      
+      // Remove transform for dragging
+      popup.style.transform = 'none';
+      popup.style.left = `${initialLeft}px`;
+      popup.style.top = `${initialTop}px`;
+      
+      header.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      
+      let newLeft = initialLeft + dx;
+      let newTop = initialTop + dy;
+      
+      // Constrain to viewport
+      const popupRect = popup.getBoundingClientRect();
+      const maxX = window.innerWidth - popupRect.width;
+      const maxY = window.innerHeight - popupRect.height;
+      
+      newLeft = Math.max(0, Math.min(newLeft, maxX));
+      newTop = Math.max(0, Math.min(newTop, maxY));
+      
+      popup.style.left = `${newLeft}px`;
+      popup.style.top = `${newTop}px`;
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        header.style.cursor = 'grab';
+      }
+    });
   }
 
   // =========================================================================
