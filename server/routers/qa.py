@@ -14,6 +14,10 @@ class QuestionRequest(BaseModel):
     project_id: Optional[str] = None
     context_ids: Optional[List[str]] = None
     max_context: int = 5
+    # Page context for in-page Q&A
+    context: Optional[str] = None  # Direct context text
+    url: Optional[str] = None  # Page URL
+    page_title: Optional[str] = None  # Page title
 
 
 class QuestionResponse(BaseModel):
@@ -24,41 +28,58 @@ class QuestionResponse(BaseModel):
 
 @router.post("/", response_model=QuestionResponse)
 async def ask_question(data: QuestionRequest, request: Request):
-    """Ask question using LLM with knowledge base context."""
+    """Ask question using LLM with knowledge base context and/or page context."""
     kb = request.app.state.kb_client
     settings = get_settings()
-    
-    # 1. Search relevant knowledge
-    context_entries = kb.search_knowledge(data.question, data.project_id, data.max_context)
-    
-    # If specific IDs provided, add those too
+
+    # 1. Build context from multiple sources
+    context_entries = []
+    sources = []
+    context_text = ""
+
+    # 1a. Use direct page context if provided (in-page Q&A)
+    if data.context:
+        context_text = f"\n[Page Context: {data.page_title or data.url}]\n{data.context}\n"
+        sources.append({
+            "id": "page",
+            "title": data.page_title or data.url,
+            "tags": ["page", "current"]
+        })
+
+    # 1b. Search relevant knowledge from KB
+    if not data.context or data.max_context > 0:
+        kb_entries = kb.search_knowledge(data.question, data.project_id, data.max_context)
+        for entry in kb_entries:
+            if entry not in context_entries:
+                context_entries.append(entry)
+
+    # 1c. If specific IDs provided, add those too
     if data.context_ids:
         for entry_id in data.context_ids:
             entry = kb.get_knowledge(entry_id)
             if entry and entry not in context_entries:
                 context_entries.append(entry)
-    
-    # 2. Build context
-    context_text = ""
-    sources = []
-    for i, entry in enumerate(context_entries, 1):
+
+    # 1d. Build combined context
+    for i, entry in enumerate(context_entries, 1 if not context_text else len(sources) + 1):
         context_text += f"\n[{i}] {entry['title']}\n{entry['content']}\n"
         sources.append({
             "id": entry["id"],
             "title": entry["title"],
             "tags": entry.get("tags", [])
         })
-    
+
     if not context_text:
         context_text = "No relevant information found in knowledge base."
-    
-    # 3. Build prompt
-    system_prompt = """You are a helpful assistant that answers questions based on the provided knowledge base context.
-Answer the question using ONLY the information from the context.
-If the context doesn't contain enough information, say so clearly.
-Be concise and accurate. Reference sources by number [1], [2], etc."""
 
-    user_prompt = f"""Context from knowledge base:
+    # 2. Build prompt
+    system_prompt = """You are a helpful assistant that answers questions based on the provided context.
+Answer the question using the information from the context.
+If the context doesn't contain enough information, say so clearly.
+Be concise and accurate. Reference sources by number [1], [2], etc.
+If the context is from a web page, you can refer to it as "this page"."""
+
+    user_prompt = f"""Context:
 {context_text}
 
 Question: {data.question}

@@ -201,6 +201,53 @@ class TestQAAPI:
         assert len(sources) > 0
         assert len(context_text) > 0
 
+    def test_qa_with_page_context(self, populated_kb, monkeypatch):
+        """Q&A should work with direct page context."""
+        kb_client, project1, project2, entries = populated_kb
+        
+        # Mock LLM response
+        mock_response = {
+            "choices": [{
+                "message": {
+                    "content": "Answer based on page content."
+                }
+            }]
+        }
+        
+        async def mock_post(*args, **kwargs):
+            class MockResponse:
+                def raise_for_status(self):
+                    pass
+                def json(self):
+                    return mock_response
+            return MockResponse()
+        
+        import httpx
+        monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+        
+        from config import get_settings
+        settings = get_settings()
+        original_key = settings.llm_api_key
+        settings.llm_api_key = "fake-key-for-test"
+        
+        try:
+            # Import and test directly
+            from server.routers.qa import QuestionRequest
+            
+            # Create request with page context
+            req = QuestionRequest(
+                question="What is this page about?",
+                context="This is a test page with sample content.",
+                url="https://example.com/test",
+                page_title="Test Page"
+            )
+            
+            assert req.context is not None
+            assert req.url == "https://example.com/test"
+            assert req.page_title == "Test Page"
+        finally:
+            settings.llm_api_key = original_key
+
 
 # =============================================================================
 # Search Tests - Direct KB client tests

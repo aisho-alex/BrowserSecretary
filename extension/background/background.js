@@ -16,6 +16,19 @@ chrome.runtime.onInstalled.addListener(() => {
     title: '📚 Save Page to Knowledge Base',
     contexts: ['page']
   });
+
+  // Q&A context menu
+  chrome.contextMenus.create({
+    id: 'qa-selection',
+    title: '❓ Ask about selection',
+    contexts: ['selection']
+  });
+
+  chrome.contextMenus.create({
+    id: 'qa-page',
+    title: '🤖 Q&A Assistant',
+    contexts: ['page']
+  });
 });
 
 // Handle context menu clicks
@@ -33,6 +46,43 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       console.error('Failed to send message to tab:', error);
     }
   }
+  
+  // Q&A menu items
+  if (info.menuItemId === 'qa-selection') {
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'ASK_ABOUT_SELECTION',
+        data: {
+          selection: info.selectionText || ''
+        }
+      });
+    } catch (error) {
+      console.error('Failed to send Q&A message:', error);
+    }
+  }
+  
+  if (info.menuItemId === 'qa-page') {
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'OPEN_QA_PANEL'
+      });
+    } catch (error) {
+      console.error('Failed to open Q&A panel:', error);
+    }
+  }
+});
+
+// Handle keyboard commands
+chrome.commands.onCommand.addListener(async (command, tab) => {
+  if (command === 'toggle-qa-panel') {
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'OPEN_QA_PANEL'
+      });
+    } catch (error) {
+      console.error('Failed to toggle Q&A panel:', error);
+    }
+  }
 });
 
 // Handle messages from popup and content scripts
@@ -43,6 +93,19 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
+  
+  // Handle page content requests
+  if (msg.type === 'GET_PAGE_CONTENT') {
+    chrome.tabs.sendMessage(sender.tab.id, { type: 'PAGE_CONTENT_REQUESTED' }, (response) => {
+      if (chrome.runtime.lastError) {
+        sendResponse({ success: false, error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ success: true, data: response });
+      }
+    });
+    return true;
+  }
+  
   return false;
 });
 
@@ -57,7 +120,7 @@ async function handleApiRequest(endpoint, method = 'GET', data = null) {
   }
 
   const response = await fetch(`${SERVER_URL}${endpoint}`, options);
-  
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`HTTP ${response.status}: ${errorText}`);

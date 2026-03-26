@@ -32,8 +32,17 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
-      "css": ["content/content.css"]
+      "js": ["content/content.js", "content/qa-content.js"],
+      "css": ["content/content.css", "content/qa-content.css"]
     }
-  ]
+  ],
+  "commands": {
+    "toggle-qa-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Toggle Q&A panel"
+    }
+  }
 }
