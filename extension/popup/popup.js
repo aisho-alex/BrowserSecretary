@@ -84,12 +84,61 @@ async function loadProjects() {
 function initSaveTab() {
   document.getElementById('save-btn').addEventListener('click', saveEntry);
   
+  // New project form handlers
+  document.getElementById('new-project-btn').addEventListener('click', showNewProjectForm);
+  document.getElementById('create-project-btn').addEventListener('click', createProject);
+  document.getElementById('cancel-project-btn').addEventListener('click', hideNewProjectForm);
+  
+  // Enter key in project name input
+  document.getElementById('new-project-name').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') createProject();
+  });
+  
   // Try to get current tab info
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     if (tabs[0]) {
       document.getElementById('save-title').value = tabs[0].title || '';
     }
   });
+}
+
+function showNewProjectForm() {
+  document.getElementById('new-project-form').style.display = 'block';
+  document.getElementById('new-project-name').focus();
+}
+
+function hideNewProjectForm() {
+  document.getElementById('new-project-form').style.display = 'none';
+  document.getElementById('new-project-name').value = '';
+}
+
+async function createProject() {
+  const name = document.getElementById('new-project-name').value.trim();
+  if (!name) {
+    alert('Please enter project name');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${SERVER_URL}/api/projects/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description: '' })
+    });
+    
+    if (!response.ok) throw new Error('Failed');
+    
+    const project = await response.json();
+    
+    // Reload projects and select new one
+    await loadProjects();
+    document.getElementById('save-project').value = project.id;
+    
+    hideNewProjectForm();
+  } catch (error) {
+    console.error('Create project error:', error);
+    alert('Failed to create project');
+  }
 }
 
 async function saveEntry() {

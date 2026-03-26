@@ -309,9 +309,19 @@
     <div class="tab-content active" id="tab-save">
       <div class="form-group">
         <label>Project</label>
-        <select id="save-project">
-          <option value="">Loading...</option>
-        </select>
+        <div style="display: flex; gap: 8px;">
+          <select id="save-project" style="flex: 1;">
+            <option value="">Loading...</option>
+          </select>
+          <button class="btn-small" id="new-project-btn" title="Create new project">+</button>
+        </div>
+      </div>
+      <div class="new-project-form" id="new-project-form" style="display: none; margin-bottom: 12px; padding: 12px; background: #f0f4ff; border-radius: 6px;">
+        <input type="text" id="new-project-name" placeholder="Project name" style="width: 100%; margin-bottom: 8px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px;">
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-small" id="create-project-btn">Create</button>
+          <button class="btn-small btn-secondary" id="cancel-project-btn">Cancel</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Title</label>
